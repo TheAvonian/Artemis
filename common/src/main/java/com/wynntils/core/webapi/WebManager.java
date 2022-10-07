@@ -13,6 +13,7 @@ import com.wynntils.core.WynntilsMod;
 import com.wynntils.core.managers.CoreManager;
 import com.wynntils.core.webapi.account.WynntilsAccount;
 import com.wynntils.core.webapi.profiles.ItemGuessProfile;
+import com.wynntils.core.webapi.profiles.PlayerStatsProfile;
 import com.wynntils.core.webapi.profiles.TerritoryProfile;
 import com.wynntils.core.webapi.profiles.item.IdentificationProfile;
 import com.wynntils.core.webapi.profiles.item.ItemProfile;
@@ -36,9 +37,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
+import java.util.UUID;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.MutableComponent;
@@ -69,6 +73,9 @@ public final class WebManager extends CoreManager {
 
     private static TerritoryUpdateThread territoryUpdateThread;
     private static final HashMap<String, TerritoryProfile> territories = new HashMap<>();
+
+    /*private static FriendUpdateThread friendUpdateThread;
+    private static final HashMap<String, >*/
 
     private static WynntilsAccount account = null;
 
@@ -185,6 +192,57 @@ public final class WebManager extends CoreManager {
             territoryUpdateThread.interrupt();
         }
         territoryUpdateThread = null;
+    }
+
+    private static final Map<UUID, PlayerStatsProfile> onlineFriends = new HashMap<>();
+
+    // queue of usernames
+    private static final Queue<String> playerQueue = new LinkedList<>();
+
+    // Loads current friend in friend queue
+    public static boolean tryLoadFriends(RequestHandler handler) {
+        if (apiUrls == null || !apiUrls.hasKey("PlayerStatsv2")) return false;
+
+        // add to online friends in dispatch and friend join
+        // remove from online friends in dispatch if offline
+        for (PlayerStatsProfile player : onlineFriends.values()) {
+            if (!playerQueue.contains(player.getUsername())) {
+                playerQueue.add(player.getUsername());
+            }
+        }
+
+        String currentFriend = playerQueue.poll();
+        if (currentFriend == null) {
+            return true;
+        }
+        String url = apiUrls.get("PlayerStatsv2") + currentFriend + "/stats";
+        handler.addAndDispatch(new RequestBuilder(url, "friend-" + currentFriend)
+                .cacheTo(new File(API_CACHE_ROOT, "friends/" + currentFriend + ".json"))
+                .handleJsonObject(json -> {
+                    if (json.get("code").getAsInt() != 200) return false;
+
+                    GsonBuilder builder = new GsonBuilder();
+                    builder.registerTypeHierarchyAdapter(
+                            PlayerStatsProfile.class, new PlayerStatsProfile.PlayerStatsProfileDeserializer());
+                    Gson lGson = builder.create();
+
+                    PlayerStatsProfile player = lGson.fromJson(json, PlayerStatsProfile.class);
+
+                    if (player.isOnline()) {
+                        onlineFriends.put(player.getUuid(), player);
+                    } else {
+                        onlineFriends.remove(player.getUuid());
+                    }
+                    WynntilsMod.info("Updated " + player.getUsername());
+                    return true;
+                })
+                .build());
+
+        return isTerritoryListLoaded();
+    }
+
+    public static void addFriend(String fName) {
+        playerQueue.add(fName);
     }
 
     private static void tryLoadItemGuesses() {
