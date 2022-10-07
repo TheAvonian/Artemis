@@ -20,13 +20,12 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Locale;
-import java.util.UUID;
 
 public class PlayerStatsProfile {
     private static final SimpleDateFormat API_DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 
     private final String username;
-    private final UUID uuid;
+    private final String uuid;
     // not player rank but game rank (ie player, mod, admin)
     private final PlayerRank rank;
     private final Date firstJoin;
@@ -123,7 +122,7 @@ public class PlayerStatsProfile {
             int professionRanking,
             int pvpRanking) {
         this.username = username;
-        this.uuid = UUID.fromString(uuid);
+        this.uuid = uuid;
         this.rank = rank;
         this.firstJoin = firstJoin;
         this.lastJoin = lastJoin;
@@ -175,7 +174,7 @@ public class PlayerStatsProfile {
         return username;
     }
 
-    public UUID getUuid() {
+    public String getUuid() {
         return uuid;
     }
 

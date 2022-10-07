@@ -9,6 +9,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 import com.wynntils.core.WynntilsMod;
 import com.wynntils.core.managers.CoreManager;
 import com.wynntils.core.webapi.account.WynntilsAccount;
@@ -25,6 +26,7 @@ import com.wynntils.mc.event.WebSetupEvent;
 import com.wynntils.mc.utils.ComponentUtils;
 import com.wynntils.mc.utils.McUtils;
 import com.wynntils.utils.Utils;
+import com.wynntils.wynn.event.QuestBookReloadedEvent;
 import com.wynntils.wynn.item.IdentificationOrderer;
 import java.io.File;
 import java.io.IOException;
@@ -42,7 +44,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.UUID;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.MutableComponent;
@@ -74,8 +75,7 @@ public final class WebManager extends CoreManager {
     private static TerritoryUpdateThread territoryUpdateThread;
     private static final HashMap<String, TerritoryProfile> territories = new HashMap<>();
 
-    /*private static FriendUpdateThread friendUpdateThread;
-    private static final HashMap<String, >*/
+    private static FriendUpdateThread friendUpdateThread;
 
     private static WynntilsAccount account = null;
 
@@ -93,6 +93,7 @@ public final class WebManager extends CoreManager {
         WebManager.updateCurrentSplash();
 
         loadCommonObjects();
+        updateFriendThreadStatus(true);
     }
 
     private static void loadCommonObjects() {
@@ -123,6 +124,7 @@ public final class WebManager extends CoreManager {
         territories.clear();
 
         updateTerritoryThreadStatus(false);
+        updateFriendThreadStatus(false);
     }
 
     private static void setupUserAccount() {
@@ -194,10 +196,31 @@ public final class WebManager extends CoreManager {
         territoryUpdateThread = null;
     }
 
-    private static final Map<UUID, PlayerStatsProfile> onlineFriends = new HashMap<>();
+    private static void updateFriendThreadStatus(boolean start) {
+        if (start) {
+            if (friendUpdateThread == null) {
+                friendUpdateThread = new FriendUpdateThread("Friend Update Thread");
+                WynntilsMod.registerEventListener(friendUpdateThread);
+                friendUpdateThread.start();
+                return;
+            }
+            return;
+        }
+
+        if (friendUpdateThread != null) {
+            friendUpdateThread.interrupt();
+            WynntilsMod.unregisterEventListener(friendUpdateThread);
+        }
+        friendUpdateThread = null;
+    }
+
+    // uuid to player
+    private static final Map<String, PlayerStatsProfile> onlineFriends = new HashMap<>();
 
     // queue of usernames
     private static final Queue<String> playerQueue = new LinkedList<>();
+
+    private static final Map<String, PlayerStatsProfile> friends = new HashMap<>();
 
     // Loads current friend in friend queue
     public static boolean tryLoadFriends(RequestHandler handler) {
@@ -226,17 +249,28 @@ public final class WebManager extends CoreManager {
                             PlayerStatsProfile.class, new PlayerStatsProfile.PlayerStatsProfileDeserializer());
                     Gson lGson = builder.create();
 
-                    PlayerStatsProfile player = lGson.fromJson(json, PlayerStatsProfile.class);
+                    PlayerStatsProfile player;
+                    try {
+                        player = lGson.fromJson(json, PlayerStatsProfile.class);
+                    } catch (JsonSyntaxException e) {
+                        playerQueue.add(currentFriend);
+                        return false;
+                    }
 
                     if (player.isOnline()) {
                         onlineFriends.put(player.getUuid(), player);
                     } else {
                         onlineFriends.remove(player.getUuid());
                     }
+
+                    friends.put(player.getUuid(), player);
+
                     WynntilsMod.info("Updated " + player.getUsername());
                     return true;
                 })
                 .build());
+
+        WynntilsMod.postEvent(new QuestBookReloadedEvent.FriendStatsReloaded());
 
         return isTerritoryListLoaded();
     }
@@ -433,5 +467,9 @@ public final class WebManager extends CoreManager {
 
     public static RequestHandler getHandler() {
         return handler;
+    }
+
+    public static List<PlayerStatsProfile> getFriendStats() {
+        return new ArrayList<>(friends.values());
     }
 }

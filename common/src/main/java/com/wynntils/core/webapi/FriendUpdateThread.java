@@ -20,13 +20,16 @@ public class FriendUpdateThread extends Thread {
 
     public FriendUpdateThread(String name) {
         super(name);
+
+        WynntilsMod.registerEventListener(this);
     }
 
     private int friendsLeft = 0;
 
     @SubscribeEvent
     public void handleMessages(ChatMessageReceivedEvent event) {
-        String message = event.getMessage().getContents();
+        String message = event.getMessage().getString();
+        WynntilsMod.info("New Message: " + message);
         if (!message.contains("'s friends (")) {
             return;
         }
@@ -54,13 +57,14 @@ public class FriendUpdateThread extends Thread {
         RequestHandler handler = new RequestHandler();
 
         try {
+            /*
             Thread.sleep(ONLINE_UPDATE_TIME);
 
             while (!isInterrupted() && friendsLeft > 0) {
                 WebManager.tryLoadFriends(handler);
                 Thread.sleep(timeBetween);
                 --friendsLeft;
-            }
+            }*/
 
             timeBetween = ONLINE_UPDATE_TIME;
 
@@ -72,6 +76,7 @@ public class FriendUpdateThread extends Thread {
         } catch (InterruptedException ignored) {
         }
 
+        WynntilsMod.unregisterEventListener(this);
         WynntilsMod.info("Terminating friend update thread.");
     }
 }

@@ -584,6 +584,7 @@
   "screens.wynntils.wynntilsQuestBook.description2": "You can pin and unpin a quest by clicking on it.",
   "screens.wynntils.wynntilsQuestBook.dialogueHistory.description": "Click here to view your dialogue history",
   "screens.wynntils.wynntilsQuestBook.dialogueHistory.name": "Dialogue History",
+  "screens.wynntils.wynntilsQuestBook.friendStats.name": "Friend Stats",
   "screens.wynntils.wynntilsQuestBook.mainMap.description": "Click here to view the main map.",
   "screens.wynntils.wynntilsQuestBook.mainMap.name": "Main Map",
   "screens.wynntils.wynntilsQuestBook.miniQuestInfo.click": "Click to see Quests",
